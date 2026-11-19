@@ -1,45 +1,49 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>PayloadContent</key>
-	<array>
-		<dict>
-			<key>PayloadType</key>
-			<string>com.apple.webClip.managed</string>
-			<key>PayloadIdentifier</key>
-			<string>com.yappu.aviation.webclip</string>
-			<key>PayloadUUID</key>
-			<string>8f2c1a64-3b7e-4d21-9a55-6c0e2b7d1f30</string>
-			<key>PayloadVersion</key>
-			<integer>1</integer>
-			<key>Label</key>
-			<string>Yappu 空乘</string>
-			<key>URL</key>
-			<string>http://100.125.115.142:8000/</string>
-			<key>IsRemovable</key>
-			<true/>
-			<key>FullScreen</key>
-			<true/>
-			<key>IgnoreManifestScope</key>
-			<true/>
-		</dict>
-	</array>
-	<key>PayloadType</key>
-	<string>Configuration</string>
-	<key>PayloadIdentifier</key>
-	<string>com.yappu.aviation.profile</string>
-	<key>PayloadUUID</key>
-	<string>3d9b7e12-5c48-4a90-b1f6-2e7a8c4d5b61</string>
-	<key>PayloadVersion</key>
-	<integer>1</integer>
-	<key>PayloadDisplayName</key>
-	<string>Yappu 空乘 · 网页版</string>
-	<key>PayloadDescription</key>
-	<string>把 Yappu 航空乘务英语网页版添加到 iPhone 主屏幕。设计者：Chao Wang（Bellary），非正式商用版 0.4.1。</string>
-	<key>PayloadOrganization</key>
-	<string>Chao Wang (Bellary)</string>
-	<key>PayloadRemovalDisallowed</key>
-	<false/>
-</dict>
-</plist>」
+name: Build unsigned IPA
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build (no signing)
+        run: |
+          xcodebuild \
+            -project Yappu.xcodeproj \
+            -scheme Yappu \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/Yappu.app Payload/
+          zip -r Yappu-unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Yappu-unsigned-ipa
+          path: Yappu-unsigned.ipa
+          if-no-files-found: error
